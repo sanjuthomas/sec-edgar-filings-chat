@@ -1,126 +1,10 @@
-# sec-edgar-filings-chat
+# Chat with SEC Filings
 
 Conversational RAG web app for SEC EDGAR filings. Ask a natural-language question, retrieve matching chunks from **pgvector** or **Qdrant**, and get a cited answer from a local **Ollama** LLM.
-
-Python port of the [Spring Boot semantic search UI](https://github.com/sanjuthomas/sec-edgar-filings-semantic-search-ui).
 
 ![SEC EDGAR Semantic Search — cited answer for a Goldman Sachs 10-K question](docs/chat-screenshot.png)
 
 *Example: ask about Goldman Sachs Q1 results with ticker `GS` and form `10-K`; the assistant returns a cited summary with expandable source cards (25 chunks from pgvector, `qwen3:30b`).*
-
-| | |
-|---|---|
-| **Ingest (pgvector)** | [sec-edgar-filings-to-pgvector](https://github.com/sanjuthomas/sec-edgar-filings-to-pgvector) |
-| **Ingest (Qdrant)** | [sec-edgar-filings-to-qdrant](https://github.com/sanjuthomas/sec-edgar-filings-to-qdrant) |
-| **Full Docker stack** | [sec-edgar-filings-rag-demo](https://github.com/sanjuthomas/sec-edgar-filings-rag-demo) |
-| **Agent guidance** | [AGENTS.md](AGENTS.md) |
-| **License** | [MIT](LICENSE) |
-
----
-
-## Ecosystem mind map
-
-This repo is the **search + answer UI only**. Filing download, chunking, and vector indexing live in sibling projects.
-
-```mermaid
-mindmap
-  root((SEC EDGAR RAG))
-    Data sources
-      SEC EDGAR API
-      10-K 10-Q 8-K filings
-    Ingest pipelines
-      sec-edgar-filings-to-pgvector
-        PostgreSQL + pgvector
-        filings + filing_chunks tables
-        BGE-M3 1024-dim embeddings
-      sec-edgar-filings-to-qdrant
-        Qdrant collection filing_chunks
-        same BGE-M3 vectors
-    This app
-      sec-edgar-filings-chat
-        FastAPI + Jinja2 UI
-        per-turn retrieval + chat
-        cited answers + source cards
-    Runtime services
-      Ollama
-        bge-m3 query embeddings
-        user-selected chat model
-      PostgreSQL :5433
-      Qdrant :16333
-    Demo
-      sec-edgar-filings-rag-demo
-        Docker Compose all-in-one
-```
-
----
-
-## Request dataflow
-
-Each chat turn **re-retrieves** fresh chunks before generating an answer. Conversation history is kept in memory (session cookie → `ConversationStore`).
-
-```mermaid
-flowchart TB
-    subgraph Browser["Browser (Jinja2 UI)"]
-        Form["ChatForm<br/>message · model · store · top-K · ticker · form"]
-    end
-
-    subgraph FastAPI["FastAPI app"]
-        Routes["routes/search.py<br/>GET / · POST /chat · POST /chat/new"]
-        Store["ConversationStore<br/>in-memory turns + settings"]
-        RAG["RagSearchService"]
-        Ticker["TickerResolver<br/>infer ticker from query"]
-        RQuery["build_retrieval_query<br/>expand short follow-ups"]
-        Router["ChunkSearchRouter"]
-        Hybrid["PgHybridSearchService<br/>optional vector + BM25 RRF"]
-    end
-
-    subgraph Ollama["Ollama :11434"]
-        Embed["/api/embeddings · bge-m3 · 1024-dim"]
-        Chat["/api/chat · user-selected model"]
-    end
-
-    subgraph VectorStores["Vector stores (pre-indexed by ingest)"]
-        PG["pgvector<br/>cosine on filing_chunks"]
-        QD["Qdrant REST<br/>/collections/filing_chunks/points/query"]
-        BM25["pg BM25 keyword search<br/>when PGSEARCH_ENABLED"]
-    end
-
-    Form -->|POST /chat| Routes
-    Routes --> Store
-    Routes --> RAG
-    RAG --> RQuery
-    RQuery --> Ticker
-    Ticker --> Embed
-    Embed --> Router
-    Embed --> Hybrid
-    Router --> PG
-    Router --> QD
-    Hybrid --> PG
-    Hybrid --> BM25
-    PG --> RAG
-    QD --> RAG
-    BM25 --> RAG
-    RAG -->|source excerpts + prior turns| Chat
-    Chat --> RAG
-    RAG --> Store
-    Store -->|HTML thread + source cards| Form
-```
-
-### Turn-by-turn pipeline
-
-| Step | Component | What happens |
-|------|-----------|--------------|
-| 1 | `search.py` | Validate `ChatForm`; load or create `Conversation` from signed session cookie |
-| 2 | `build_retrieval_query` | Expand terse follow-ups (e.g. “how much was it?”) with the prior user message |
-| 3 | `TickerResolver` | Apply explicit ticker filter or infer one from the retrieval query |
-| 4 | `OllamaClient.embed` | Embed retrieval query with `bge-m3` (must match ingest index) |
-| 5 | Retrieval | **pgvector**: cosine search, or hybrid vector + BM25 RRF when enabled · **Qdrant**: REST vector query |
-| 6 | `OllamaClient.chat_messages` | Send system prompt, prior Q&A, and fresh excerpts; get cited answer |
-| 7 | Jinja2 | Render full thread with collapsible source cards linking to SEC EDGAR |
-
-Use **New conversation** (`POST /chat/new`) to clear context.
-
----
 
 ## Features
 
@@ -236,6 +120,46 @@ cp .env.example .env
 | `QDRANT_COLLECTION` | `filing_chunks` | Qdrant collection name |
 | `SESSION_SECRET_KEY` | `dev-only-change-in-production` | Signs the browser session cookie |
 | `CONVERSATION_MAX_TURNS` | `40` | Max user+assistant turns kept in memory |
+
+---
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Routes as search.py
+    participant Conv as ConversationStore
+    participant RAG as RagSearchService
+    participant Embed as Ollama bge-m3
+    participant VStore as pgvector or Qdrant
+    participant LLM as Ollama
+    participant View as Jinja2
+
+    Browser->>Routes: POST /chat (message, model, store, chunkCount)
+    Routes->>Conv: load or create conversation
+    Routes->>RAG: continue_conversation(message)
+    RAG->>Embed: embed retrieval query
+    Embed-->>RAG: 1024-dim query vector
+    RAG->>VStore: top-K similarity search (+ optional filters)
+    VStore-->>RAG: filing chunks + metadata
+    RAG->>LLM: prior turns + question + source excerpts
+    LLM-->>RAG: answer with [1][2] citations
+    RAG-->>Routes: updated conversation
+    Routes->>Conv: save conversation
+    Routes->>View: render index.html
+    View-->>Browser: HTML (thread + source cards)
+```
+
+1. Browser submits a message via POST to `/chat` with model, vector store, chunk count, and optional filters.
+2. `search.py` loads or creates a `Conversation` from the signed session cookie.
+3. `RagSearchService` orchestrates the full RAG pipeline on each turn — chunks are **not** sent to the browser until the LLM finishes.
+4. Ollama embeds the retrieval query with `bge-m3` (short follow-ups are expanded with the prior user message).
+5. `ChunkSearchRouter` queries **pgvector** (psycopg) or **Qdrant** (REST) for the top-K chunks (pgvector may use hybrid BM25+vector when enabled).
+6. Top-K chunks plus prior chat turns are passed to Ollama with a system prompt requiring inline citations.
+7. Jinja2 renders the full thread with source cards and SEC EDGAR links.
+
+Use **New conversation** (`POST /chat/new`) to clear context.
 
 ---
 
