@@ -1,0 +1,13 @@
+services:
+  sec-edgar-filings-chat:
+    build: .
+    ports:
+      - "8095:8095"
+    environment:
+      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@host.docker.internal:5433/edgar
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      QDRANT_URL: http://host.docker.internal:16333
+      DEFAULT_VECTOR_STORE: pgvector
+      PGSEARCH_ENABLED: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

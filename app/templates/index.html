@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEC EDGAR Filings Chat</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<main class="page">
+    <header class="hero">
+        <div class="hero-row">
+            <div>
+                <p class="eyebrow">SEC EDGAR · pgvector · Qdrant · Ollama</p>
+                <h1>Ask questions about SEC filings</h1>
+                <p class="subtitle">
+                    Multi-turn chat with retrieval-augmented answers and citations.
+                    Each follow-up re-searches your vector store using conversation context.
+                </p>
+            </div>
+            <form action="/chat/new" method="post">
+                <button type="submit" class="secondary-button">New conversation</button>
+            </form>
+        </div>
+    </header>
+
+    <section class="panel settings-panel">
+        <details {% if not conversation %}open{% endif %}>
+            <summary>Search settings</summary>
+            <form id="chat-form" action="/chat" method="post" class="search-form">
+                <div class="settings-grid">
+                    <div>
+                        <label for="chatModel">Ollama model</label>
+                        <select id="chatModel" name="chat_model" required>
+                            {% for model_name in chat_models %}
+                            <option value="{{ model_name }}" {% if model_name == settings.chat_model %}selected{% endif %}>
+                                {{ model_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if field_errors.get('chat_model') %}
+                        <p class="field-error">{{ field_errors.chat_model }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="vectorStore">Vector store</label>
+                        <select id="vectorStore" name="vector_store" required>
+                            {% for store_name in vector_stores %}
+                            <option value="{{ store_name }}" {% if store_name == settings.vector_store %}selected{% endif %}>
+                                {{ store_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if field_errors.get('vector_store') %}
+                        <p class="field-error">{{ field_errors.vector_store }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="chunkCount">Chunk count</label>
+                        <input
+                                id="chunkCount"
+                                name="chunk_count"
+                                type="number"
+                                min="1"
+                                max="500"
+                                list="chunkCountOptions"
+                                value="{{ settings.chunk_count }}"
+                                required>
+                        <datalist id="chunkCountOptions">
+                            {% for count in chunk_count_choices %}
+                            <option value="{{ count }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        {% if field_errors.get('chunk_count') %}
+                        <p class="field-error">{{ field_errors.chunk_count }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="ticker">Ticker (optional)</label>
+                        <input id="ticker" name="ticker" type="text" placeholder="GS" maxlength="10"
+                               value="{{ settings.ticker }}">
+                        {% if field_errors.get('ticker') %}
+                        <p class="field-error">{{ field_errors.ticker }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="form">Form (optional)</label>
+                        <input id="form" name="form" type="text" placeholder="10-K" maxlength="20"
+                               value="{{ settings.form }}">
+                        {% if field_errors.get('form') %}
+                        <p class="field-error">{{ field_errors.form }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <section class="chat-thread" id="chat-thread" aria-live="polite">
+                    {% if conversation and conversation.turns %}
+                        {% for turn in conversation.turns %}
+                            {% if turn.role == 'user' %}
+                            <article class="chat-bubble chat-bubble-user">
+                                <p class="bubble-label">You</p>
+                                <div class="bubble-body">{{ turn.content }}</div>
+                            </article>
+                            {% else %}
+                            <article class="chat-bubble chat-bubble-assistant">
+                                <p class="bubble-label">Assistant</p>
+                                <div class="bubble-body">{{ turn.content }}</div>
+                                {% if turn.metadata %}
+                                <p class="bubble-meta">
+                                    Retrieved in {{ turn.metadata.retrieval_ms }} ms ·
+                                    Generated in {{ turn.metadata.generation_ms }} ms ·
+                                    {{ turn.metadata.source_count }} sources
+                                    {% if turn.metadata.applied_ticker %}
+                                    · Ticker <strong>{{ turn.metadata.applied_ticker }}</strong>
+                                    {% if turn.metadata.ticker_inferred %}(auto-detected){% endif %}
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+                                {% if turn.sources %}
+                                <details class="source-details">
+                                    <summary>Sources ({{ turn.sources|length }})</summary>
+                                    <div class="source-list">
+                                        {% for source in turn.sources %}
+                                        <article class="source-card">
+                                            <header>
+                                                <span class="citation-badge">[{{ source.citation_number }}]</span>
+                                                <strong>{{ source.ticker }} · {{ source.company_name }}</strong>
+                                                <span>{{ source.form }}</span>
+                                                {% if source.filing_date %}
+                                                <span>· filed {{ source.filing_date }}</span>
+                                                {% endif %}
+                                            </header>
+                                            <p class="source-meta">
+                                                Accession <code>{{ source.accession_number }}</code>
+                                                · chunk {{ source.chunk_index }}
+                                                · distance {{ "%.4f"|format(source.distance) }}
+                                                {% if source.section %}· {{ source.section }}{% endif %}
+                                            </p>
+                                            <p class="source-excerpt">{{ source.content }}</p>
+                                            {% if source.document_url %}
+                                            <a href="{{ source.document_url }}" target="_blank" rel="noopener noreferrer">
+                                                View on SEC EDGAR
+                                            </a>
+                                            {% endif %}
+                                        </article>
+                                        {% endfor %}
+                                    </div>
+                                </details>
+                                {% endif %}
+                            </article>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                    <div class="chat-empty">
+                        <p>Start a conversation. Example:</p>
+                        <p class="chat-example">Who are the elected directors in Goldman Sachs?</p>
+                    </div>
+                    {% endif %}
+                </section>
+
+                <label for="message">Your message</label>
+                <textarea
+                        id="message"
+                        name="message"
+                        rows="2"
+                        placeholder="Ask a question or follow up…"
+                        required></textarea>
+                {% if field_errors.get('message') %}
+                <p class="field-error">{{ field_errors.message }}</p>
+                {% endif %}
+
+                <button id="chat-button" type="submit" class="primary-button">Send</button>
+            </form>
+        </details>
+    </section>
+</main>
+<script>
+    (function () {
+        const form = document.getElementById("chat-form");
+        const button = document.getElementById("chat-button");
+        const thread = document.getElementById("chat-thread");
+        const message = document.getElementById("message");
+
+        if (thread) {
+            thread.scrollTop = thread.scrollHeight;
+        }
+
+        if (!form || !button) {
+            return;
+        }
+
+        const defaultLabel = button.textContent;
+
+        form.addEventListener("submit", function () {
+            if (!form.checkValidity()) {
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Searching…";
+            button.setAttribute("aria-busy", "true");
+        });
+
+        if (message) {
+            message.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    if (form.checkValidity()) {
+                        form.requestSubmit();
+                    }
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>
