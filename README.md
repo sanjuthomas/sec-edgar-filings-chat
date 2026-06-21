@@ -69,26 +69,43 @@ Optional filters: ticker (`GS`), form (`10-K`).
 
 ## Docker
 
-### Compose
+Ollama must run on the **host** (`ollama pull bge-m3` plus a chat model). Vector stores can run on the host or in Docker.
 
-Requires **pgvector**, **Qdrant** (if selected), and **Ollama** reachable from the container:
+### App only (host vector stores)
+
+Use when pgvector and Qdrant are already running on the host (default ports `5433` / `16333`):
 
 ```bash
 docker compose up --build
 ```
 
-### Manual run
+Open **http://localhost:8095**
+
+The container reaches host services via `host.docker.internal`.
+
+### App + pgvector + Qdrant in Docker
+
+Bootstraps empty ParadeDB and Qdrant containers with the expected schema. Run an [ingest project](https://github.com/sanjuthomas/sec-edgar-filings-to-pgvector) to load chunks before searching.
 
 ```bash
+docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build
+```
+
+### Manual image run
+
+```bash
+docker build -t sec-edgar-filings-chat:local .
 docker run --rm -p 8095:8095 \
-  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5433/edgar \
+  -e PG_HOST=host.docker.internal \
+  -e PG_PORT=5433 \
+  -e PGPASSWORD=postgres \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   -e QDRANT_URL=http://host.docker.internal:16333 \
   --add-host=host.docker.internal:host-gateway \
   sec-edgar-filings-chat:local
 ```
 
-For a full stack (Postgres, Qdrant, Ollama, ingest, UI), use [sec-edgar-filings-rag-demo](https://github.com/sanjuthomas/sec-edgar-filings-rag-demo).
+For crawler, ingest, and a full demo stack, use [sec-edgar-filings-rag-demo](https://github.com/sanjuthomas/sec-edgar-filings-rag-demo).
 
 ---
 

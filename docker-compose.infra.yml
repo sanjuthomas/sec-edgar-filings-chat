@@ -1,0 +1,60 @@
+# Optional vector-store infrastructure for local Docker.
+# Use with: docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build
+#
+# Creates empty pgvector (ParadeDB) and Qdrant instances — run an ingest project
+# to load filing chunks before searching.
+
+services:
+  pgvector:
+    image: paradedb/paradedb:latest-pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: edgar
+    ports:
+      - "${PG_PORT:-5433}:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+      - ./docker/sql/001_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d edgar"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "16333:6333"
+      - "16334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/6333' || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  sec-edgar-filings-chat:
+    environment:
+      PG_HOST: pgvector
+      PG_PORT: 5432
+      DATABASE_URL: postgresql://postgres:postgres@pgvector:5432/edgar
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      pgvector:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+volumes:
+  pgvector-data:
+  qdrant-data:

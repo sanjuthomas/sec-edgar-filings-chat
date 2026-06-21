@@ -1,13 +1,49 @@
+# Chat UI only — vector stores and Ollama run on the host by default.
+#
+# Prerequisites on the host:
+#   - Ollama on http://localhost:11434 (ollama pull bge-m3)
+#   - pgvector on localhost:5433 and/or Qdrant on localhost:16333 with indexed data
+#
+# Start:
+#   docker compose up --build
+#
+# Run pgvector + Qdrant in Docker as well (Ollama still on host):
+#   docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build
+
 services:
   sec-edgar-filings-chat:
     build: .
+    image: sec-edgar-filings-chat:local
     ports:
-      - "8095:8095"
+      - "${SERVER_PORT:-8095}:${SERVER_PORT:-8095}"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      DATABASE_URL: postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@host.docker.internal:5433/edgar
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      QDRANT_URL: http://host.docker.internal:16333
-      DEFAULT_VECTOR_STORE: pgvector
-      PGSEARCH_ENABLED: "true"
+      SERVER_PORT: ${SERVER_PORT:-8095}
+      PGUSER: ${PGUSER:-postgres}
+      PGPASSWORD: ${PGPASSWORD:-postgres}
+      PG_HOST: ${PG_HOST:-host.docker.internal}
+      PG_PORT: ${PG_PORT:-5433}
+      PG_DATABASE: ${PG_DATABASE:-edgar}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      QDRANT_URL: ${QDRANT_URL:-http://host.docker.internal:16333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-filing_chunks}
+      DEFAULT_VECTOR_STORE: ${DEFAULT_VECTOR_STORE:-pgvector}
+      PGSEARCH_ENABLED: ${PGSEARCH_ENABLED:-true}
+      SEARCH_TOP_K: ${SEARCH_TOP_K:-25}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"SERVER_PORT\", \"8095\")}/')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

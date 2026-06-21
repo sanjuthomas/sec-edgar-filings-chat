@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+
+exec uvicorn app.main:app --host 0.0.0.0 --port "${SERVER_PORT:-8095}"

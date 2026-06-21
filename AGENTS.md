@@ -105,7 +105,8 @@ Agents **should** add tests when changing validation, routing, or ticker-resolut
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8095 --reload   # dev server
 pytest                                                       # unit tests (CI)
-docker compose up --build                                    # local image
+docker compose up --build                                    # app in Docker (host vector stores)
+docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build  # app + pgvector + Qdrant
 ```
 
 UI: http://localhost:8095/
