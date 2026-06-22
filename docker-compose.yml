@@ -1,14 +1,12 @@
-# Chat UI only — vector stores and Ollama run on the host by default.
+# Chat UI — connects to vector stores from sibling ingest repos on the host.
 #
-# Prerequisites on the host:
-#   - Ollama on http://localhost:11434 (ollama pull bge-m3)
-#   - pgvector on localhost:5433 and/or Qdrant on localhost:16333 with indexed data
+# Prerequisites (docker compose up in each ingest project):
+#   sec-edgar-filings-to-pgvector  → edgar-pgvector on host port 5433
+#   sec-edgar-filings-to-qdrant    → edgar-qdrant on host port 6333
+#   Ollama on http://localhost:11434 (ollama pull bge-m3)
 #
 # Start:
 #   docker compose up --build
-#
-# Run pgvector + Qdrant in Docker as well (Ollama still on host):
-#   docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build
 
 services:
   sec-edgar-filings-chat:
@@ -27,7 +25,7 @@ services:
       PG_PORT: ${PG_PORT:-5433}
       PG_DATABASE: ${PG_DATABASE:-edgar}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      QDRANT_URL: ${QDRANT_URL:-http://host.docker.internal:16333}
+      QDRANT_URL: ${QDRANT_URL:-http://host.docker.internal:6333}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-filing_chunks}
       DEFAULT_VECTOR_STORE: ${DEFAULT_VECTOR_STORE:-pgvector}
       PGSEARCH_ENABLED: ${PGSEARCH_ENABLED:-true}

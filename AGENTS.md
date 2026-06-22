@@ -46,7 +46,8 @@ Retrieval is routed by `ChunkSearchRouter` to repository implementations:
 
 - Config: `DEFAULT_VECTOR_STORE`, `QDRANT_URL`, `QDRANT_COLLECTION`
 - Default vector store: **qdrant**
-- Qdrant URL default: `http://localhost:16333` (host); Compose demo uses `http://qdrant:6333` internally.
+- Qdrant URL default: `http://localhost:6333` (`edgar-qdrant` from sec-edgar-filings-to-qdrant compose)
+- PostgreSQL default: `localhost:5433` (`edgar-pgvector` from sec-edgar-filings-to-pgvector compose)
 - Schema is owned by ingest projects — this app does **not** create tables or Qdrant collections.
 
 ---
@@ -105,16 +106,15 @@ Agents **should** add tests when changing validation, routing, or ticker-resolut
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8095 --reload   # dev server
 pytest                                                       # unit tests (CI)
-docker compose up --build                                    # app in Docker (host vector stores)
-docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build  # app + pgvector + Qdrant
+docker compose up --build                                    # chat in Docker; vector stores on host :5433 / :6333
 ```
 
 UI: http://localhost:8095/
 
 **Local prerequisites** (not started by this repo):
 
-- PostgreSQL + pgvector on `localhost:5433`, database `edgar`
-- Qdrant on `localhost:16333` (if using Qdrant)
+- PostgreSQL + pgvector on `localhost:5433` (`edgar-pgvector` in sec-edgar-filings-to-pgvector)
+- Qdrant on `localhost:6333` (`edgar-qdrant` in sec-edgar-filings-to-qdrant)
 - Ollama on `localhost:11434` with chat models (default config: `qwen3:30b`)
 
 ---

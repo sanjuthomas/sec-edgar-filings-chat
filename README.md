@@ -35,8 +35,8 @@ Conversational RAG web app for SEC EDGAR filings. Ask a natural-language questio
 
 - Python **3.11+**
 - **Ollama** on `localhost:11434` with chat models and **`bge-m3`** for query embeddings
-- **PostgreSQL + pgvector** on `localhost:5433`, database `edgar` (when using pgvector)
-- **Qdrant** on `localhost:16333` (when using Qdrant)
+- **PostgreSQL + pgvector** — [sec-edgar-filings-to-pgvector](https://github.com/sanjuthomas/sec-edgar-filings-to-pgvector) Docker (`edgar-pgvector`) on `localhost:5433`, database `edgar`
+- **Qdrant** — [sec-edgar-filings-to-qdrant](https://github.com/sanjuthomas/sec-edgar-filings-to-qdrant) Docker (`edgar-qdrant`) on `localhost:6333`
 
 Indexed data must exist before searching — run an ingest project first.
 
@@ -69,11 +69,7 @@ Optional filters: ticker (`GS`), form (`10-K`).
 
 ## Docker
 
-Ollama must run on the **host** (`ollama pull bge-m3` plus a chat model). Vector stores can run on the host or in Docker.
-
-### App only (host vector stores)
-
-Use when pgvector and Qdrant are already running on the host (default ports `5433` / `16333`):
+Ollama must run on the **host** (`ollama pull bge-m3` plus a chat model). Vector stores run in the **ingest project** Docker stacks above.
 
 ```bash
 docker compose up --build
@@ -81,15 +77,7 @@ docker compose up --build
 
 Open **http://localhost:8095**
 
-The container reaches host services via `host.docker.internal`.
-
-### App + pgvector + Qdrant in Docker
-
-Bootstraps empty ParadeDB and Qdrant containers with the expected schema. Run an [ingest project](https://github.com/sanjuthomas/sec-edgar-filings-to-pgvector) to load chunks before searching.
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.infra.yml up --build
-```
+The chat container reaches `edgar-pgvector` and `edgar-qdrant` on the host via `host.docker.internal` (ports `5433` / `6333`).
 
 ### Manual image run
 
@@ -100,7 +88,7 @@ docker run --rm -p 8095:8095 \
   -e PG_PORT=5433 \
   -e PGPASSWORD=postgres \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  -e QDRANT_URL=http://host.docker.internal:16333 \
+  -e QDRANT_URL=http://host.docker.internal:6333 \
   --add-host=host.docker.internal:host-gateway \
   sec-edgar-filings-chat:local
 ```
@@ -137,7 +125,7 @@ cp .env.example .env
 | `QDRANT_BM25_MODEL` | `Qdrant/bm25` | Qdrant document query model for BM25 leg |
 | `HYBRID_RETRIEVAL_TOP_K` | `50` | Candidates per leg before hybrid fusion |
 | `DEFAULT_VECTOR_STORE` | `pgvector` | Default store (`pgvector` or `qdrant`) |
-| `QDRANT_URL` | `http://localhost:16333` | Qdrant REST base URL |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant REST (`edgar-qdrant` from ingest compose) |
 | `QDRANT_COLLECTION` | `filing_chunks` | Qdrant collection name |
 | `SESSION_SECRET_KEY` | `dev-only-change-in-production` | Signs the browser session cookie |
 | `CONVERSATION_MAX_TURNS` | `40` | Max user+assistant turns kept in memory |
@@ -241,7 +229,7 @@ Unit tests cover validation, routing, ticker resolution, and hybrid reranking wi
 |---------|-----|
 | `relation filing_chunks does not exist` | Run ingest in [sec-edgar-filings-to-pgvector](https://github.com/sanjuthomas/sec-edgar-filings-to-pgvector) |
 | Connection refused on `5433` | Start pgvector in the ingest project |
-| Qdrant connection errors | Start Qdrant; check `QDRANT_URL` (host `16333`, Compose internal `6333`) |
+| Qdrant connection errors | Start [sec-edgar-filings-to-qdrant](https://github.com/sanjuthomas/sec-edgar-filings-to-qdrant); check `QDRANT_URL` (`http://localhost:6333` on host, `host.docker.internal:6333` from chat container) |
 | Port `8095` already in use | Stop the other process or change `SERVER_PORT` |
 | Ollama timeout / slow answers | Large models (e.g. `qwen3:30b`) can take minutes; try a smaller model |
 | Poor search quality | Ensure `bge-m3` is pulled; try ticker/form filters |

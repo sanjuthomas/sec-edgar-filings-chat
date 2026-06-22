@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     )
 
     default_vector_store: str = "pgvector"
-    qdrant_url: str = "http://localhost:16333"
+    qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "filing_chunks"
     qdrantsearch_enabled: bool = Field(
         default=True,
