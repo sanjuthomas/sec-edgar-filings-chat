@@ -25,9 +25,9 @@
     </header>
 
     <section class="panel settings-panel">
-        <details {% if not conversation %}open{% endif %}>
-            <summary>Search settings</summary>
-            <form id="chat-form" action="/chat" method="post" class="search-form">
+        <form id="chat-form" action="/chat" method="post" class="search-form">
+            <details class="settings-details" {% if not conversation %}open{% endif %}>
+                <summary>Search settings</summary>
                 <div class="settings-grid">
                     <div>
                         <label for="chatModel">Ollama model</label>
@@ -96,6 +96,7 @@
                         {% endif %}
                     </div>
                 </div>
+            </details>
 
                 <section class="chat-thread" id="chat-thread" aria-live="polite">
                     {% if conversation and conversation.turns %}
@@ -174,8 +175,7 @@
                 {% endif %}
 
                 <button id="chat-button" type="submit" class="primary-button">Send</button>
-            </form>
-        </details>
+        </form>
     </section>
 </main>
 <script>

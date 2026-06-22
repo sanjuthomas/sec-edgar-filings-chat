@@ -44,11 +44,15 @@ body {
     flex-wrap: wrap;
 }
 
-.settings-panel details > summary {
+.settings-panel .settings-details > summary {
     cursor: pointer;
     font-weight: 700;
     margin-bottom: 1rem;
     color: var(--accent);
+}
+
+.settings-details {
+    margin-bottom: 1.25rem;
 }
 
 .settings-grid {
