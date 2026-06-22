@@ -2,9 +2,11 @@
 
 Conversational RAG web app for SEC EDGAR filings. Ask a natural-language question, retrieve matching chunks from **pgvector** or **Qdrant**, and get a cited answer from a local **Ollama** LLM.
 
-![SEC EDGAR Semantic Search — cited answer for a Goldman Sachs 10-K question](docs/chat-screenshot.png)
+<video src="docs/chat-demo.webm" controls width="100%">
+  <a href="docs/chat-demo.webm">Download demo video</a>
+</video>
 
-*Example: ask about Goldman Sachs Q1 results with ticker `GS` and form `10-K`; the assistant returns a cited summary with expandable source cards (25 chunks from pgvector, `qwen3:30b`).*
+*Demo: Goldman Sachs 10-K/Q question — ask about Q1 results with ticker `GS`; the assistant returns a cited summary with expandable source cards.*
 
 ## Features
 
