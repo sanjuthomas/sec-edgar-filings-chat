@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.models import ChunkMatch, RetrievedChunk
-from app.repositories.pgvector_repo import PgBm25ChunkRepository, PgVectorHybridChunkRepository
 
 
 RRF_K = 60
@@ -12,29 +11,29 @@ def rerank(
     bm25_chunks: list[RetrievedChunk],
     top_n: int,
 ) -> list[ChunkMatch]:
-    chunks_by_id: dict[int, RetrievedChunk] = {}
-    fused_scores: dict[int, float] = {}
+    chunks_by_key: dict[str, RetrievedChunk] = {}
+    fused_scores: dict[str, float] = {}
 
-    _accumulate_rrf_scores(vector_chunks, fused_scores, chunks_by_id)
-    _accumulate_rrf_scores(bm25_chunks, fused_scores, chunks_by_id)
+    _accumulate_rrf_scores(vector_chunks, fused_scores, chunks_by_key)
+    _accumulate_rrf_scores(bm25_chunks, fused_scores, chunks_by_key)
 
     ranked = sorted(fused_scores.items(), key=lambda item: item[1], reverse=True)[:top_n]
 
     matches: list[ChunkMatch] = []
-    for citation_number, (chunk_id, fused_score) in enumerate(ranked, start=1):
-        chunk = chunks_by_id[chunk_id]
+    for citation_number, (merge_key, fused_score) in enumerate(ranked, start=1):
+        chunk = chunks_by_key[merge_key]
         matches.append(_to_chunk_match(citation_number, chunk, fused_score))
     return matches
 
 
 def _accumulate_rrf_scores(
     ranked_chunks: list[RetrievedChunk],
-    fused_scores: dict[int, float],
-    chunks_by_id: dict[int, RetrievedChunk],
+    fused_scores: dict[str, float],
+    chunks_by_key: dict[str, RetrievedChunk],
 ) -> None:
     for rank, chunk in enumerate(ranked_chunks):
-        chunks_by_id.setdefault(chunk.chunk_id, chunk)
-        fused_scores[chunk.chunk_id] = fused_scores.get(chunk.chunk_id, 0.0) + (
+        chunks_by_key.setdefault(chunk.merge_key, chunk)
+        fused_scores[chunk.merge_key] = fused_scores.get(chunk.merge_key, 0.0) + (
             1.0 / (RRF_K + rank + 1)
         )
 

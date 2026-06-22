@@ -31,6 +31,10 @@ services:
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-filing_chunks}
       DEFAULT_VECTOR_STORE: ${DEFAULT_VECTOR_STORE:-pgvector}
       PGSEARCH_ENABLED: ${PGSEARCH_ENABLED:-true}
+      QDRANTSEARCH_ENABLED: ${QDRANTSEARCH_ENABLED:-true}
+      QDRANT_DENSE_VECTOR: ${QDRANT_DENSE_VECTOR:-dense}
+      QDRANT_BM25_VECTOR: ${QDRANT_BM25_VECTOR:-content-bm25}
+      QDRANT_BM25_MODEL: ${QDRANT_BM25_MODEL:-Qdrant/bm25}
       SEARCH_TOP_K: ${SEARCH_TOP_K:-25}
     extra_hosts:
       - "host.docker.internal:host-gateway"

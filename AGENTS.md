@@ -59,7 +59,7 @@ All orchestration happens in `RagSearchService` — each turn re-retrieves befor
 2. Optional `TickerResolver` infers ticker from the retrieval query when no ticker filter is set.
 3. `build_retrieval_query` expands short follow-ups with the prior user message for embedding search.
 4. `OllamaClient.embed` embeds the retrieval query via Ollama `bge-m3` (1024-dim).
-5. `ChunkSearchRouter` retrieves top-K chunks from the selected vector store.
+5. Hybrid retrieval when enabled: `PgHybridSearchService` (pgvector cosine + ParadeDB BM25) or `QdrantHybridSearchService` (dense + sparse BM25); both fuse with RRF via `hybrid_reranker`. Otherwise `ChunkSearchRouter` vector-only.
 6. `OllamaClient.chat_messages` sends prior turns plus the latest user message with fresh excerpts.
 7. Jinja2 renders the full chat thread with per-turn source cards.
 

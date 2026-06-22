@@ -27,6 +27,7 @@ class TestRagSearchConversation:
             ollama_client=MagicMock(),
             chunk_search_router=MagicMock(),
             pg_hybrid_search_service=MagicMock(),
+            qdrant_hybrid_search_service=MagicMock(),
             ticker_resolver=MagicMock(),
         )
         service.answer_message = MagicMock(

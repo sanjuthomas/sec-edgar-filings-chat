@@ -98,11 +98,11 @@ class TestTickerResolver:
 
 class TestHybridReranker:
     @staticmethod
-    def _chunk(chunk_id: int, content: str) -> RetrievedChunk:
+    def _chunk(merge_key: str, content: str) -> RetrievedChunk:
         return RetrievedChunk(
-            chunk_id=chunk_id,
+            merge_key=merge_key,
             content=content,
-            accession_number=f"0000000000-00-{chunk_id:06d}",
+            accession_number=f"0000000000-00-{merge_key}",
             chunk_index=0,
             ticker="GS",
             company_name="Example Corp",
@@ -114,9 +114,9 @@ class TestHybridReranker:
         )
 
     def test_merges_results_by_chunk_id_and_reranks_with_reciprocal_rank_fusion(self) -> None:
-        shared = self._chunk(1, "shared chunk")
-        vector_only = self._chunk(2, "vector only")
-        bm25_only = self._chunk(3, "bm25 only")
+        shared = self._chunk("1", "shared chunk")
+        vector_only = self._chunk("2", "vector only")
+        bm25_only = self._chunk("3", "bm25 only")
 
         reranked = hybrid_reranker.rerank(
             [shared, vector_only],
@@ -125,16 +125,16 @@ class TestHybridReranker:
         )
 
         assert len(reranked) == 3
-        assert reranked[0].accession_number == "0000000000-00-000001"
+        assert reranked[0].accession_number == "0000000000-00-1"
         assert reranked[0].chunk_index == 0
         assert reranked[0].citation_number == 1
         assert reranked[0].distance > 0.0
 
     def test_limits_results_to_requested_top_n(self) -> None:
         vector_chunks = [
-            self._chunk(1, "one"),
-            self._chunk(2, "two"),
-            self._chunk(3, "three"),
+            self._chunk("1", "one"),
+            self._chunk("2", "two"),
+            self._chunk("3", "three"),
         ]
 
         reranked = hybrid_reranker.rerank(vector_chunks, [], 2)

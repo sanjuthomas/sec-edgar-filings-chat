@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models import ChunkMatch, RetrievedChunk, VectorStoreType
+from app.models import ChunkMatch, VectorStoreType
 from app.repositories.pgvector_repo import ChunkSearchRepository
 
 

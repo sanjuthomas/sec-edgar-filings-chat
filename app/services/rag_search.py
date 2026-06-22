@@ -19,6 +19,7 @@ from app.models import (
 from app.services.chunk_search_router import ChunkSearchRouter
 from app.services.ollama_client import OllamaClient, SYSTEM_PROMPT
 from app.services.pg_hybrid_search import PgHybridSearchService
+from app.services.qdrant_hybrid_search import QdrantHybridSearchService
 from app.services.retrieval_query import build_retrieval_query
 from app.services.ticker_resolver import TickerResolver
 
@@ -29,11 +30,13 @@ class RagSearchService:
         ollama_client: OllamaClient,
         chunk_search_router: ChunkSearchRouter,
         pg_hybrid_search_service: PgHybridSearchService,
+        qdrant_hybrid_search_service: QdrantHybridSearchService,
         ticker_resolver: TickerResolver,
     ) -> None:
         self._ollama_client = ollama_client
         self._chunk_search_router = chunk_search_router
         self._pg_hybrid_search_service = pg_hybrid_search_service
+        self._qdrant_hybrid_search_service = qdrant_hybrid_search_service
         self._ticker_resolver = ticker_resolver
 
     def answer(self, form: SearchForm) -> SearchResponse:
@@ -121,6 +124,14 @@ class RagSearchService:
 
         if vector_store == VectorStoreType.PGVECTOR and self._pg_hybrid_search_service.is_enabled():
             sources = self._pg_hybrid_search_service.search(
+                retrieval_query,
+                query_vector,
+                settings.chunk_count,
+                resolved_ticker.ticker,
+                settings.normalized_form(),
+            )
+        elif vector_store == VectorStoreType.QDRANT and self._qdrant_hybrid_search_service.is_enabled():
+            sources = self._qdrant_hybrid_search_service.search(
                 retrieval_query,
                 query_vector,
                 settings.chunk_count,

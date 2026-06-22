@@ -43,11 +43,30 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1024
     hybrid_retrieval_top_k: int = 50
 
-    pgsearch_enabled: bool = True
+    pgsearch_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("PGSEARCH_ENABLED", "pgsearch_enabled"),
+    )
 
     default_vector_store: str = "pgvector"
     qdrant_url: str = "http://localhost:16333"
     qdrant_collection: str = "filing_chunks"
+    qdrantsearch_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("QDRANTSEARCH_ENABLED", "qdrantsearch_enabled"),
+    )
+    qdrant_dense_vector: str = Field(
+        default="dense",
+        validation_alias=AliasChoices("QDRANT_DENSE_VECTOR", "qdrant_dense_vector"),
+    )
+    qdrant_bm25_vector: str = Field(
+        default="content-bm25",
+        validation_alias=AliasChoices("QDRANT_BM25_VECTOR", "qdrant_bm25_vector"),
+    )
+    qdrant_bm25_model: str = Field(
+        default="Qdrant/bm25",
+        validation_alias=AliasChoices("QDRANT_BM25_MODEL", "qdrant_bm25_model"),
+    )
 
     session_secret_key: str = "dev-only-change-in-production"
     conversation_max_turns: int = 40

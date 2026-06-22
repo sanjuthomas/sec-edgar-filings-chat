@@ -12,7 +12,7 @@ Conversational RAG web app for SEC EDGAR filings. Ask a natural-language questio
 - **Dual vector stores** — pgvector (psycopg) or Qdrant (REST); selectable in the UI
 - **Configurable chunk count** — presets 10 / 25 / 50 / 100 or any value from 1–500
 - **Cited RAG answers** — inline `[1]`, `[2]`, … citations with SEC EDGAR links
-- **Optional pgvector hybrid search** — vector + BM25 with reciprocal rank fusion when `PGSEARCH_ENABLED=true`
+- **Hybrid search** — pgvector: vector + ParadeDB BM25 RRF; Qdrant: dense + sparse BM25 RRF (when enabled)
 - **Search-in-progress UX** — submit button disables and shows “Searching…” until reload
 - **Turn metadata** — retrieval/generation timing, vector store, model, source count
 
@@ -131,6 +131,10 @@ cp .env.example .env
 | `SEARCH_TOP_K` | `25` | Default chunk count on page load |
 | `EMBEDDING_DIMENSIONS` | `1024` | Expected embedding size |
 | `PGSEARCH_ENABLED` | `true` | pgvector hybrid search (vector + BM25 RRF) |
+| `QDRANTSEARCH_ENABLED` | `true` | Qdrant hybrid search (dense + BM25 RRF) |
+| `QDRANT_DENSE_VECTOR` | `dense` | Qdrant named vector for dense search |
+| `QDRANT_BM25_VECTOR` | `content-bm25` | Qdrant sparse vector for BM25 search |
+| `QDRANT_BM25_MODEL` | `Qdrant/bm25` | Qdrant document query model for BM25 leg |
 | `HYBRID_RETRIEVAL_TOP_K` | `50` | Candidates per leg before hybrid fusion |
 | `DEFAULT_VECTOR_STORE` | `pgvector` | Default store (`pgvector` or `qdrant`) |
 | `QDRANT_URL` | `http://localhost:16333` | Qdrant REST base URL |
@@ -172,9 +176,10 @@ sequenceDiagram
 2. `search.py` loads or creates a `Conversation` from the signed session cookie.
 3. `RagSearchService` orchestrates the full RAG pipeline on each turn — chunks are **not** sent to the browser until the LLM finishes.
 4. Ollama embeds the retrieval query with `bge-m3` (short follow-ups are expanded with the prior user message).
-5. `ChunkSearchRouter` queries **pgvector** (psycopg) or **Qdrant** (REST) for the top-K chunks (pgvector may use hybrid BM25+vector when enabled).
-6. Top-K chunks plus prior chat turns are passed to Ollama with a system prompt requiring inline citations.
-7. Jinja2 renders the full thread with source cards and SEC EDGAR links.
+5. Hybrid retrieval when enabled: **pgvector** runs cosine + ParadeDB BM25; **Qdrant** runs dense + sparse BM25; both fuse with RRF (`HYBRID_RETRIEVAL_TOP_K` per leg, user `chunk_count` for final top-N).
+6. Otherwise `ChunkSearchRouter` queries the selected store with vector search only.
+7. Top-K chunks plus prior chat turns are passed to Ollama with a system prompt requiring inline citations.
+8. Jinja2 renders the full thread with source cards and SEC EDGAR links.
 
 Use **New conversation** (`POST /chat/new`) to clear context.
 

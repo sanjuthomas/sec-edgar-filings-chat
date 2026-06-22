@@ -16,6 +16,7 @@ from app.repositories.pgvector_repo import (
     PgVectorChunkRepository,
     PgVectorHybridChunkRepository,
 )
+from app.repositories.qdrant_hybrid_repo import QdrantHybridChunkRepository
 from app.repositories.qdrant_repo import QdrantChunkRepository
 from app.routes.search import router as search_router
 from app.services.conversation_store import ConversationStore
@@ -23,6 +24,7 @@ from app.services.chunk_search_router import ChunkSearchRouter
 from app.services.ollama_client import OllamaClient
 from app.services.ollama_service import OllamaModelService
 from app.services.pg_hybrid_search import PgHybridSearchService
+from app.services.qdrant_hybrid_search import QdrantHybridSearchService
 from app.services.rag_search import RagSearchService
 from app.services.ticker_resolver import TickerResolver
 
@@ -62,10 +64,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pg_hybrid_vector_repo,
         pg_bm25_repo,
     )
+    qdrant_hybrid_repo = QdrantHybridChunkRepository(
+        settings.qdrant_url,
+        settings.qdrant_collection,
+        settings.qdrant_dense_vector,
+        settings.qdrant_bm25_vector,
+        settings.qdrant_bm25_model,
+    )
+    qdrant_hybrid_search_service = QdrantHybridSearchService(
+        settings.qdrantsearch_enabled,
+        settings.hybrid_retrieval_top_k,
+        qdrant_hybrid_repo,
+    )
     rag_search_service = RagSearchService(
         ollama_client,
         chunk_search_router,
         pg_hybrid_search_service,
+        qdrant_hybrid_search_service,
         ticker_resolver,
     )
     conversation_store = ConversationStore(max_turns=settings.conversation_max_turns)

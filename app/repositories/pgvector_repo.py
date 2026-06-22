@@ -219,7 +219,7 @@ def _map_retrieved_row(row: tuple) -> RetrievedChunk:
     section = metadata.get("section") if isinstance(metadata.get("section"), str) else None
     filing_date: date | None = row[8]
     return RetrievedChunk(
-        chunk_id=row[0],
+        merge_key=str(row[0]),
         content=row[1],
         accession_number=row[2],
         chunk_index=row[3],

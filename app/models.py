@@ -81,7 +81,7 @@ class ChunkMatch(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
-    chunk_id: int
+    merge_key: str
     content: str
     accession_number: str
     chunk_index: int
